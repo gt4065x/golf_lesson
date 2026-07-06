@@ -193,10 +193,59 @@ window.dispatchEvent(new Event('fb-ready'));
   .ps-note{background:var(--card);border:1px solid var(--line);border-radius:14px;
     padding:15px;font-size:13px;line-height:1.7;color:var(--muted)}
   .ps-note b{color:var(--text)}
+  .auth-gate{position:fixed;inset:0;z-index:500;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
+.auth-box{width:100%;max-width:380px;background:var(--bg2);border:1px solid var(--line);border-radius:22px;padding:30px 24px}
+.auth-brand{text-align:center;margin-bottom:22px}
+.auth-brand .mark{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:2px;
+  background:linear-gradient(120deg,var(--fair-glow),var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.auth-brand .sub{display:block;font-size:11px;color:var(--muted);letter-spacing:3px;font-weight:700;margin-top:2px}
+.auth-box h3{font-size:19px;font-weight:900;margin-bottom:14px;text-align:center}
+.auth-msg{font-size:12px;color:#ff8a8a;min-height:16px;margin:-4px 0 10px;text-align:center}
+.auth-switch{text-align:center;font-size:13px;color:var(--muted);margin-top:14px}
+.auth-switch a{color:var(--fair-glow);font-weight:700;cursor:pointer}
+.pending-ic{font-size:48px;text-align:center;margin-bottom:6px}
+#authPending h3{margin-top:6px;text-align:center}
+#authPending .hint{text-align:center}
+.admin-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.admin-info{display:flex;flex-direction:column;font-size:13px}
+.admin-info span{color:var(--muted);font-size:11px;margin-top:2px}
+.admin-actions{display:flex;gap:6px}
+.admin-actions .btn{padding:8px 12px;font-size:12px;flex:none}
 </style>
 </head>
 <body>
+<div class="auth-gate" id="authGate">
+  <div class="auth-box">
+    <div class="auth-brand"><span class="mark">GREEN ROOM</span><span class="sub">SHORTS</span></div>
 
+    <div id="authLogin">
+      <h3>로그인</h3>
+      <div class="field"><label>이메일</label><input id="loginEmail" type="email" placeholder="you@example.com"></div>
+      <div class="field"><label>비밀번호</label><input id="loginPw" type="password" placeholder="비밀번호"></div>
+      <div class="auth-msg" id="loginMsg"></div>
+      <button class="btn primary" onclick="doLogin()" style="width:100%">로그인</button>
+      <p class="auth-switch">계정이 없나요? <a onclick="showSignup()">회원가입 신청</a></p>
+    </div>
+
+    <div id="authSignup" style="display:none">
+      <h3>회원가입 신청</h3>
+      <p class="hint">가입 신청 후 관리자 승인이 완료되면 입장할 수 있어요.</p>
+      <div class="field"><label>이메일</label><input id="signupEmail" type="email" placeholder="you@example.com"></div>
+      <div class="field"><label>비밀번호</label><input id="signupPw" type="password" placeholder="6자 이상"></div>
+      <div class="field"><label>이름/닉네임 (선택)</label><input id="signupName" placeholder="홍길동"></div>
+      <div class="auth-msg" id="signupMsg"></div>
+      <button class="btn primary" onclick="doSignup()" style="width:100%">가입 신청하기</button>
+      <p class="auth-switch">이미 계정이 있나요? <a onclick="showLogin()">로그인</a></p>
+    </div>
+
+    <div id="authPending" style="display:none">
+      <div class="pending-ic">⏳</div>
+      <h3>승인 대기중입니다</h3>
+      <p class="hint">관리자가 가입 신청을 확인한 후<br>승인하면 바로 입장하실 수 있어요.</p>
+      <button class="btn ghost" onclick="doLogout()" style="width:100%;margin-top:14px">로그아웃</button>
+    </div>
+  </div>
+</div>
 <header>
   <div class="brand"><span class="mark">GREEN ROOM</span><span class="sub">SHORTS</span>
     <span id="syncDot" title="연결 중" style="width:8px;height:8px;border-radius:50%;background:#c9762a;align-self:center;transition:.3s"></span>
@@ -217,6 +266,14 @@ window.dispatchEvent(new Event('fb-ready'));
 <div id="content"></div>
 
 <div class="fab">
+  <div class="fab">
+  <button id="editBtn" onclick="toggleEdit()"><span class="ic">✏️</span>편집</button>
+  <button onclick="exportData()"><span class="ic">💾</span>백업</button>
+  <button onclick="importData()"><span class="ic">📥</span>복원</button>
+  <button id="adminBtn" style="display:none" onclick="openAdminPanel()"><span class="ic">🔑</span>승인관리</button>
+  <button onclick="doLogout()"><span class="ic">🚪</span>로그아웃</button>
+</div>
+  
   <button id="editBtn" onclick="toggleEdit()"><span class="ic">✏️</span>편집</button>
   <button onclick="exportData()"><span class="ic">💾</span>백업</button>
   <button onclick="importData()"><span class="ic">📥</span>복원</button>
@@ -277,6 +334,18 @@ window.dispatchEvent(new Event('fb-ready'));
 </div>
 
 <div class="toast" id="toast"></div>
+  <div class="overlay" id="adminOverlay">
+  <div class="sheet">
+    <div class="grip"></div>
+    <h3>승인 관리</h3>
+    <p class="hint">가입 신청자 목록입니다. 승인하면 바로 입장할 수 있어요.</p>
+    <div id="adminList"></div>
+    <div class="btnrow"><button class="btn ghost" onclick="closeAdminPanel()">닫기</button></div>
+  </div>
+</div>
+<script>
+document.getElementById('adminOverlay').addEventListener('click', e=>{ if(e.target.id==='adminOverlay') closeAdminPanel(); });
+</script>
 
 <script>
 /* ===== 초기 링크 (깃허브 배포용 프리로드) ===== */
@@ -598,6 +667,94 @@ function toast(msg){
   clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2000);
 }
 render(); // 캐시 기반 첫 화면(Firebase가 준비되면 실시간 데이터로 자동 교체)
+</script>
+  <script>
+const ADMIN_EMAIL = 'gt4065x@gmail.com';
+
+function showLogin(){ authLogin.style.display='block'; authSignup.style.display='none'; authPending.style.display='none'; }
+function showSignup(){ authLogin.style.display='none'; authSignup.style.display='block'; authPending.style.display='none'; }
+function showPending(){ authLogin.style.display='none'; authSignup.style.display='none'; authPending.style.display='block'; }
+
+function authErrMsg(err){
+  const c=err.code||'';
+  if(c.includes('email-already-in-use')) return '이미 가입된 이메일이에요';
+  if(c.includes('invalid-email')) return '이메일 형식이 올바르지 않아요';
+  if(c.includes('weak-password')) return '비밀번호는 6자 이상이어야 해요';
+  if(c.includes('user-not-found')||c.includes('wrong-password')||c.includes('invalid-credential')) return '이메일 또는 비밀번호가 올바르지 않아요';
+  return '오류가 발생했어요 ('+c+')';
+}
+
+function doSignup(){
+  const email=signupEmail.value.trim(), pw=signupPw.value, name=signupName.value.trim();
+  signupMsg.textContent='';
+  if(!email||!pw){ signupMsg.textContent='이메일과 비밀번호를 입력해주세요'; return; }
+  const {auth, createUserWithEmailAndPassword}=window.FBAuth;
+  createUserWithEmailAndPassword(auth, email, pw)
+    .then(cred=>{
+      const {db,ref,set}=window.FB;
+      return set(ref(db,'users/'+cred.user.uid), {email, name:name||'', approved:false, requestedAt:Date.now()});
+    })
+    .catch(err=>{ signupMsg.textContent=authErrMsg(err); });
+}
+
+function doLogin(){
+  const email=loginEmail.value.trim(), pw=loginPw.value;
+  loginMsg.textContent='';
+  if(!email||!pw){ loginMsg.textContent='이메일과 비밀번호를 입력해주세요'; return; }
+  const {auth, signInWithEmailAndPassword}=window.FBAuth;
+  signInWithEmailAndPassword(auth, email, pw)
+    .catch(err=>{ loginMsg.textContent=authErrMsg(err); });
+}
+
+function doLogout(){ const {auth, signOut}=window.FBAuth; signOut(auth); }
+
+function enterApp(isAdmin){
+  authGate.style.display='none';
+  adminBtn.style.display = isAdmin ? 'flex' : 'none';
+}
+function lockApp(){ authGate.style.display='flex'; }
+
+window.addEventListener('fb-ready', ()=>{
+  const {auth, onAuthStateChanged}=window.FBAuth;
+  const {db, ref, onValue}=window.FB;
+  onAuthStateChanged(auth, user=>{
+    if(!user){ lockApp(); showLogin(); return; }
+    if(user.email === ADMIN_EMAIL){ enterApp(true); return; }
+    onValue(ref(db,'users/'+user.uid), snap=>{
+      const data=snap.val();
+      if(data && data.approved){ enterApp(false); }
+      else { lockApp(); showPending(); }
+    });
+  });
+});
+
+function openAdminPanel(){ adminOverlay.classList.add('on'); loadPendingUsers(); }
+function closeAdminPanel(){ adminOverlay.classList.remove('on'); }
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function loadPendingUsers(){
+  const {db,ref,get}=window.FB;
+  get(ref(db,'users')).then(snap=>{
+    const val=snap.val()||{};
+    const list=Object.keys(val).map(uid=>({uid, ...val[uid]})).sort((a,b)=>(b.requestedAt||0)-(a.requestedAt||0));
+    adminList.innerHTML = list.length ? '' : '<p class="hint">신청 내역이 없습니다</p>';
+    list.forEach(u=>{
+      const row=document.createElement('div'); row.className='admin-row';
+      row.innerHTML=`<div class="admin-info"><b>${escapeHtml(u.email||'')}</b><span>${escapeHtml(u.name||'')} · ${u.approved?'승인됨':'대기중'}</span></div>`;
+      const actions=document.createElement('div'); actions.className='admin-actions';
+      if(!u.approved){
+        const ok=document.createElement('button'); ok.textContent='승인'; ok.className='btn primary'; ok.onclick=()=>approveUser(u.uid);
+        actions.appendChild(ok);
+      }
+      const del=document.createElement('button'); del.textContent='삭제'; del.className='btn ghost'; del.onclick=()=>rejectUser(u.uid);
+      actions.appendChild(del);
+      row.appendChild(actions); adminList.appendChild(row);
+    });
+  });
+}
+function approveUser(uid){ const {db,ref,update}=window.FB; update(ref(db,'users/'+uid),{approved:true}).then(()=>{ toast('승인 완료 ✅'); loadPendingUsers(); }); }
+function rejectUser(uid){ if(!confirm('이 신청을 삭제할까요?'))return; const {db,ref,remove}=window.FB; remove(ref(db,'users/'+uid)).then(()=>{ toast('삭제되었습니다'); loadPendingUsers(); }); }
 </script>
 </body>
 </html>
